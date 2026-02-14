@@ -1,26 +1,62 @@
 import streamlit as st
 from groq import Groq
 
-# --- მონაცემები ---
+# --- მონაცემები და კონფიგურაცია ---
 client = Groq(api_key="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")
 
 st.set_page_config(page_title="Gemo AI Pro", page_icon="🧒")
 
-# --- ფუნქცია შენი პერსონალური პასუხებისთვის ---
+# --- გრძელი ტექსტების ბლოკი ---
+INFO_PRESIDENTS = """
+### 🇬🇪 საქართველოს პრეზიდენტები:
+
+1. **ზვიად გამსახურდია (1991–1992):** პირველი პრეზიდენტი, დამოუკიდებლობის აღდგენის სიმბოლო.
+2. **ედუარდ შევარდნაძე (1995–2003):** დასავლური კურსის დაწყება და 1995 წლის კონსტიტუცია.
+3. **მიხეილ სააკაშვილი (2004–2013):** ვარდების რევოლუციის ლიდერი, სახელმწიფო ინსტიტუტების რეფორმა.
+4. **გიორგი მარგველაშვილი (2013–2018):** პირველი პრეზიდენტი საპარლამენტო რესპუბლიკის მოდელში.
+5. **სალომე ზურაბიშვილი (2018–დღემდე):** პირველი ქალი პრეზიდენტი საქართველოში.
+"""
+
+# --- ფუნქცია გამრავლების ტაბულის გენერირებისთვის ---
+def generate_multiplication_table(number):
+    table = f"### 🔢 {number}-ის გამრავლების ტაბულა:\n\n"
+    table += "| ფორმულა | შედეგი |\n| :--- | :--- |\n"
+    for i in range(1, 11):
+        table += f"| {number} × {i} | **{number * i}** |\n"
+    return table
+
+# --- პერსონალური პასუხების ფუნქცია ---
 def get_custom_response(text):
+    text = text.lower().strip()
+    
+    # 1. ვამოწმებთ, ხომ არ ითხოვს მომხმარებელი გამრავლების ტაბულას
+    if "ტაბულა" in text or "გამრავლება" in text:
+        words = text.split()
+        for word in words:
+            if word.isdigit(): # თუ წინადადებაში ციფრი იპოვა
+                return generate_multiplication_table(int(word))
+
+    # 2. სტატიკური პასუხების ლექსიკონი
     responses = {
         "გამარჯობა": "სალამი!",
-        "ვინ შეგქმნა": "მე მიხეილ ჭიჭიაშვილმა შემქმნა.",
+        "ვინ შეგქმნა": "მე დეველოპერმა შემქმნა.",
         "რა გქვია": "მე მქვია Gemo AI.",
-        "რამდენი წლის ხარ": "მე ხელოვნური ინტელექტი ვარ ნეირონული ტვინი ასაკი არ მაქვს!",
+        "რამდენი წლის ხარ": "მე ხელოვნური ინტელექტი ვარ, ასაკი არ მაქვს!",
         "ნახვამდის": "ნახვამდის, იმედია მალე ისევ ვისაუბრებთ!",
         "როგორ ხარ": "კარგად ვარ, გმადლობ! შენ როგორ ხარ?",
-        "მიხეილ ჭიჭიაშვილი ვინ არის": "მიხეილ ჭიჭიაშვილი ჩემი შემქმნელი და ძალიან ნიჭიერი დეველოპერია."
+        "შემქმნელი": "მიხეილ ჭიჭიაშვილია ჩემი შემქმნელი და ძალიან ნიჭიერი დეველოპერია.",
+        "პრეზიდენტ": INFO_PRESIDENTS,
+        "ამბანი": "ქართული ამბანი მსოფლიოში ერთ-ერთი უნიკალურია და იუნესკოს მემკვიდრეობაა.",
+        "თორნიკე ჯოჯუა": "თორნიკე ჯოჯუა არის დაცვის კომპანია „მაგისტრის“ დირექტორი."
     }
-    # ვამოწმებთ, არის თუ არა კითხვა ჩვენს სიაში
-    return responses.get(text.lower().strip())
 
-# --- ხმის ფუნქცია ---
+    # ვეძებთ საკვანძო სიტყვას
+    for key in responses:
+        if key in text:
+            return responses[key]
+    return None
+
+# --- ხმის ფუნქცია (JavaScript) ---
 st.markdown("""
     <script>
     function speakText(text) {
@@ -35,9 +71,7 @@ st.markdown("""
 
 # მეხსიერების ინიციალიზაცია
 if "messages" not in st.session_state:
-    st.session_state.messages = [
-        {"role": "system", "content": "შენ ხარ Gemo AI, შექმნილი მიხეილ ჭიჭიაშვილის მიერ. იყავი მოკლე და ზუსტი."}
-    ]
+    st.session_state.messages = [{"role": "system", "content": "შენ ხარ Gemo AI. იყავი მოკლე და ზუსტი."}]
 
 # ისტორიის ჩვენება
 for message in st.session_state.messages:
@@ -52,27 +86,26 @@ if prompt := st.chat_input("ჰკითხე რამე Gemo-ს..."):
         st.markdown(prompt)
 
     with st.chat_message("assistant"):
-        # 1. ჯერ ვამოწმებთ ჩვენს პერსონალურ პასუხებს
         custom_answer = get_custom_response(prompt)
         
         if custom_answer:
             response = custom_answer
         else:
-            # 2. თუ პასუხი სიაში არ არის, ვიძახებთ Groq AI-ს
             try:
                 completion = client.chat.completions.create(
                     model="llama-3.1-8b-instant",
                     messages=st.session_state.messages,
                     temperature=0.1,
-                    max_tokens=100
+                    max_tokens=400
                 )
                 response = completion.choices[0].message.content
             except Exception:
-                response = "უკაცრავად, ცოტა დავიბენი. კიდევ ერთხელ მკითხე."
+                response = "უკაცრავად, ხარვეზია API-სთან კავშირისას."
 
         st.markdown(response)
         
         # ხმის გაშვება
-        st.components.v1.html(f"<script>speakText('{response.replace(chr(39), '')}');</script>", height=0)
+        clean_response = response.replace("'", "").replace("\n", " ").replace("#", "")
+        st.components.v1.html(f"<script>speakText('{clean_response}');</script>", height=0)
         
         st.session_state.messages.append({"role": "assistant", "content": response})
