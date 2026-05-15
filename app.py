@@ -28,7 +28,7 @@ def save_info(key, value):
 init_db()
 
 # Groq კონფიგურაცია - აქ ჩასვი შენი API Key
-client = Groq(api_key="შენი_გასაღები_აქ")
+client = Groq(api_key="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")
 
 st.set_page_config(page_title="Gemo AI Pro", page_icon="🤖")
 st.title("🤖 Gemo AI Pro")
