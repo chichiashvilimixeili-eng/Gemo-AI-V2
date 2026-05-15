@@ -1,111 +1,97 @@
 import streamlit as st
 from groq import Groq
+import sqlite3
+from datetime import datetime
+import pytz
+import time
 
-# --- მონაცემები და კონფიგურაცია ---
+# --- მონაცემთა ბაზის გამართვა ---
+def init_db():
+    conn = sqlite3.connect('gemo_data.db')
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS user_info (key TEXT PRIMARY KEY, value TEXT)''')
+    conn.commit()
+    conn.close()
+
+def get_info(key):
+    conn = sqlite3.connect('gemo_data.db')
+    c = conn.cursor()
+    c.execute("SELECT value FROM user_info WHERE key=?", (key,))
+    res = c.fetchone()
+    conn.close()
+    return res[0] if res else None
+
+def save_info(key, value):
+    conn = sqlite3.connect('gemo_data.db')
+    c = conn.cursor()
+    c.execute("INSERT OR REPLACE INTO user_info VALUES (?, ?)", (key, value))
+    conn.commit()
+    conn.close()
+
+init_db()
+
+# --- კონფიგურაცია ---
 client = Groq(api_key="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")
+st.set_page_config(page_title="Gemo AI Pro", page_icon="🤖")
 
-st.set_page_config(page_title="Gemo AI Pro", page_icon="🧒")
-
-# --- გრძელი ტექსტების ბლოკი ---
-INFO_PRESIDENTS = """
-### 🇬🇪 საქართველოს პრეზიდენტები:
-
-1. **ზვიად გამსახურდია (1991–1992):** პირველი პრეზიდენტი, დამოუკიდებლობის აღდგენის სიმბოლო.
-2. **ედუარდ შევარდნაძე (1995–2003):** დასავლური კურსის დაწყება და 1995 წლის კონსტიტუცია.
-3. **მიხეილ სააკაშვილი (2004–2013):** ვარდების რევოლუციის ლიდერი, სახელმწიფო ინსტიტუტების რეფორმა.
-4. **გიორგი მარგველაშვილი (2013–2018):** პირველი პრეზიდენტი საპარლამენტო რესპუბლიკის მოდელში.
-5. **სალომე ზურაბიშვილი (2018–დღემდე):** პირველი ქალი პრეზიდენტი საქართველოში.
-"""
-
-# --- ფუნქცია გამრავლების ტაბულის გენერირებისთვის ---
-def generate_multiplication_table(number):
-    table = f"### 🔢 {number}-ის გამრავლების ტაბულა:\n\n"
-    table += "| ფორმულა | შედეგი |\n| :--- | :--- |\n"
-    for i in range(1, 11):
-        table += f"| {number} × {i} | **{number * i}** |\n"
-    return table
-
-# --- პერსონალური პასუხების ფუნქცია ---
-def get_custom_response(text):
+# --- ლოკალური ლოგიკა ---
+def get_local_answer(text):
     text = text.lower().strip()
     
-    # 1. ვამოწმებთ, ხომ არ ითხოვს მომხმარებელი გამრავლების ტაბულას
-    if "ტაბულა" in text or "გამრავლება" in text:
-        words = text.split()
-        for word in words:
-            if word.isdigit(): # თუ წინადადებაში ციფრი იპოვა
-                return generate_multiplication_table(int(word))
+    # სახელით მოკითხვა
+    user_name = get_info('name')
+    if "მე მქვია" in text:
+        name = text.split("მქვია")[-1].strip().capitalize()
+        save_info('name', name)
+        return f"სასიამოვნოა შენი გაცნობა, **{name}**! დავიმახსოვრე შენი სახელი."
+    
+    if "რა მქვია" in text:
+        return f"შენ გქვია **{user_name}**." if user_name else "ჯერ არ გითქვამს შენი სახელი."
 
-    # 2. სტატიკური პასუხების ლექსიკონი
-    responses = {
-        "გამარჯობა": "სალამი!",
-        "ვინ შეგქმნა": "მე დეველოპერმა შემქმნა.",
-        "რა გქვია": "მე მქვია Gemo AI.",
-        "რამდენი წლის ხარ": "მე ხელოვნური ინტელექტი ვარ, ასაკი არ მაქვს!",
-        "ნახვამდის": "ნახვამდის, იმედია მალე ისევ ვისაუბრებთ!",
-        "როგორ ხარ": "კარგად ვარ, გმადლობ! შენ როგორ ხარ?",
-        "შემქმნელი": "მიხეილ ჭიჭიაშვილია ჩემი შემქმნელი და ძალიან ნიჭიერი დეველოპერია.",
-        "პრეზიდენტ": INFO_PRESIDENTS,
-        "ამბანი": "ქართული ამბანი მსოფლიოში ერთ-ერთი უნიკალურია და იუნესკოს მემკვიდრეობაა.",
-        "თორნიკე ჯოჯუა": "თორნიკე ჯოჯუა არის დაცვის კომპანია „მაგისტრის“ დირექტორი."
-    }
+    # დრო და ვალუტა
+    if "დრო" in text:
+        return f"🕒 თბილისში ახლა: **{datetime.now(pytz.timezone('Asia/Tbilisi')).strftime('%H:%M')}**"
+    
+    if "დოლარი" in text or "$" in text:
+        nums = [float(s) for s in text.split() if s.replace('.','',1).isdigit()]
+        if nums: return f"💵 {nums[0]}$ არის დაახლოებით **{round(nums[0]*2.70, 2)} ₾**."
 
-    # ვეძებთ საკვანძო სიტყვას
-    for key in responses:
-        if key in text:
-            return responses[key]
     return None
 
-# --- ხმის ფუნქცია (JavaScript) ---
-st.markdown("""
-    <script>
-    function speakText(text) {
-        window.speechSynthesis.cancel();
-        const msg = new SpeechSynthesisUtterance(text);
-        msg.lang = 'ka-GE';
-        msg.pitch = 1.1;
-        window.speechSynthesis.speak(msg);
-    }
-    </script>
-    """, unsafe_allow_html=True)
+# --- ინტერფეისი ---
+with st.sidebar:
+    st.title("🧒 Gemo AI Pro")
+    name_display = get_info('name') or "მეგობარო"
+    st.write(f"მოგესალმები, **{name_display}**!")
+    if st.button("🗑️ მეხსიერების წაშლა"):
+        st.session_state.messages = []
+        st.rerun()
 
-# მეხსიერების ინიციალიზაცია
+# ხმის ფუნქცია
+st.markdown("<script>function speakText(t){window.speechSynthesis.cancel();const m=new SpeechSynthesisUtterance(t);m.lang='ka-GE';window.speechSynthesis.speak(m);}</script>", unsafe_allow_html=True)
+
 if "messages" not in st.session_state:
-    st.session_state.messages = [{"role": "system", "content": "შენ ხარ Gemo AI. იყავი მოკლე და ზუსტი."}]
+    st.session_state.messages = [{"role": "system", "content": f"შენ ხარ Gemo AI. მომხმარებელს ჰქვია {name_display}."}]
 
-# ისტორიის ჩვენება
-for message in st.session_state.messages:
-    if message["role"] != "system":
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+for m in st.session_state.messages:
+    if m["role"] != "system":
+        with st.chat_message(m["role"]): st.markdown(m["content"])
 
-# ჩატი
-if prompt := st.chat_input("ჰკითხე რამე Gemo-ს..."):
+if prompt := st.chat_input("ჰკითხე Gemo-ს..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
-        st.markdown(prompt)
+    with st.chat_message("user"): st.markdown(prompt)
 
     with st.chat_message("assistant"):
-        custom_answer = get_custom_response(prompt)
-        
-        if custom_answer:
-            response = custom_answer
+        local_res = get_local_answer(prompt)
+        if local_res:
+            full_res = local_res
+            st.write(full_res)
         else:
-            try:
-                completion = client.chat.completions.create(
-                    model="llama-3.1-8b-instant",
-                    messages=st.session_state.messages,
-                    temperature=0.1,
-                    max_tokens=400
-                )
-                response = completion.choices[0].message.content
-            except Exception:
-                response = "უკაცრავად, ხარვეზია API-სთან კავშირისას."
-
-        st.markdown(response)
+            comp = client.chat.completions.create(model="llama-3.1-8b-instant", messages=st.session_state.messages)
+            full_res = comp.choices[0].message.content
+            st.write(full_res)
         
         # ხმის გაშვება
-        clean_response = response.replace("'", "").replace("\n", " ").replace("#", "")
-        st.components.v1.html(f"<script>speakText('{clean_response}');</script>", height=0)
-        
-        st.session_state.messages.append({"role": "assistant", "content": response})
+        clean_v = full_res.replace("#", "").replace("*", "").replace("\n", " ")
+        st.components.v1.html(f"<script>speakText('{clean_v}');</script>", height=0)
+        st.session_state.messages.append({"role": "assistant", "content": full_res})
