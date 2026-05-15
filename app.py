@@ -102,7 +102,7 @@ if prompt := st.chat_input("ჰკითხე რამე Gemo-ს..."):
         {"role": "system", "content": "შენ ხარ Gemo AI, მეგობრული და ჭკვიანი ასისტენტი. უპასუხე მხოლოდ ქართულად, მოკლედ და გასაგებად. არ გამოიგონო უაზრო სიტყვები."},
         {"role": "user", "content": prompt}
     ],
-    temperature=0.3,  # დაწიე ტემპერატურა 0.3-მდე უფრო ლოგიკური პასუხებისთვის
+    temperature=0.1,
     max_tokens=200
 )
                 response_text = completion.choices[0].message.content
