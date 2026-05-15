@@ -4,7 +4,7 @@ import sqlite3
 from datetime import datetime
 import pytz
 
-# 1. მონაცემთა ბაზის გამართვა (სახელისთვის)
+# 1. ბაზის გამართვა
 def init_db():
     conn = sqlite3.connect('gemo_data.db', check_same_thread=False)
     c = conn.cursor()
@@ -31,25 +31,24 @@ def save_info(key, value):
 
 init_db()
 
-# 2. კონფიგურაცია
-client = Groq(api_key="შენი_API_გასაღები")
+# 2. დრო და კონფიგურაცია
+tbilisi_tz = pytz.timezone('Asia/Tbilisi')
+now = datetime.now(tbilisi_tz)
+current_time = now.strftime("%H:%M")
+current_date = now.strftime("%d/%m/%Y")
+
+client = Groq(api_key="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")
 st.set_page_config(page_title="Gemo AI Pro", page_icon="🤖")
 
-# დროის გაგება (თბილისის დროით)
-tbilisi_tz = pytz.timezone('Asia/Tbilisi')
-current_time = datetime.now(tbilisi_tz).strftime("%H:%M:%S")
-current_date = datetime.now(tbilisi_tz).strftime("%Y-%m-%d")
-
-# 3. მეხსიერების შენარჩუნება (Session State)
+# 3. მეხსიერება და სისტემური ინსტრუქცია
 if "messages" not in st.session_state:
     user_name = get_info('name') or "მეგობარო"
     st.session_state.messages = [
-        {"role": "system", "content": f"შენ ხარ Gemo AI, მიხეილ ჩიჩიაშვილის მიერ შექმნილი. დღეს არის {current_date}, ახლა არის {current_time}. მომხმარებლის სახელია {user_name}. ისაუბრე მხოლოდ გამართული ქართულით, იყავი ზუსტი და მეგობრული. გრამატიკა დაიცავი მაქსიმალურად."}
+        {"role": "system", "content": f"შენ ხარ Gemo AI. დღეს არის {current_date}, ახლა არის {current_time}. მომხმარებლის სახელია {user_name}. ისაუბრე მხოლოდ გამართული ქართულით. დაიცავი გრამატიკა."}
     ]
 
 st.title("🤖 Gemo AI Pro")
 
-# ისტორიის ჩვენება
 for message in st.session_state.messages:
     if message["role"] != "system":
         with st.chat_message(message["role"]):
@@ -61,22 +60,20 @@ if prompt := st.chat_input("ჰკითხე რამე Gemo-ს..."):
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    # სახელის ამოცნობა და შენახვა ბაზაში
-    if "მქვია" in prompt:
-        name = prompt.split("მქვია")[-1].strip().strip('.')
+    if "მქვია" in prompt.lower():
+        name = prompt.lower().split("მქვია")[-1].strip().capitalize()
         save_info('name', name)
 
     try:
-        # ვიყენებთ ყველაზე ძლიერ მოდელს გრამატიკისთვის
         completion = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model="llama-3.3-70b-versatile", # საუკეთესო მოდელი ქართულისთვის
             messages=st.session_state.messages,
-            temperature=0.2, # დაბალი ტემპერატურა = ნაკლები გრამატიკული შეცდომა
-            max_tokens=600
+            temperature=0.2, # დაბალი ტემპერატურა სიზუსტისთვის
+            max_tokens=800
         )
         response_text = completion.choices[0].message.content
     except Exception as e:
-        response_text = "ხარვეზია კავშირისას."
+        response_text = "ხარვეზია კავშირისას. გთხოვ, შეამოწმე API გასაღები."
 
     with st.chat_message("assistant"):
         st.markdown(response_text)
