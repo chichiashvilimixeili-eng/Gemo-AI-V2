@@ -75,7 +75,7 @@ if prompt := st.chat_input("ჰკითხე რამე Gemo-ს..."):
             completion = client.chat.completions.create(
                 model="llama-3.1-8b-instant",
                 messages=st.session_state.messages,
-                temperature=0.4, # დაბალი ტემპერატურა ლოგიკური პასუხებისთვის
+                temperature=0.2, # დაბალი ტემპერატურა ლოგიკური პასუხებისთვის
                 max_tokens=300
             )
             response_text = completion.choices[0].message.content
