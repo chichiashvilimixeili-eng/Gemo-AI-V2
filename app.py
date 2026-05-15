@@ -3,7 +3,6 @@ from groq import Groq
 import sqlite3
 from datetime import datetime
 import pytz
-import time
 
 # --- მონაცემთა ბაზის გამართვა ---
 def init_db():
@@ -31,67 +30,59 @@ def save_info(key, value):
 init_db()
 
 # --- კონფიგურაცია ---
-client = Groq(api_key="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")
+# აქ ჩასვი შენი Groq API Key
+client = Groq(api_key="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") 
+
 st.set_page_config(page_title="Gemo AI Pro", page_icon="🤖")
 
-# --- ლოკალური ლოგიკა ---
-def get_local_answer(text):
-    text = text.lower().strip()
-    
-    # სახელით მოკითხვა
-    user_name = get_info('name')
-    if "მე მქვია" in text:
-        name = text.split("მქვია")[-1].strip().capitalize()
-        save_info('name', name)
-        return f"სასიამოვნოა შენი გაცნობა, **{name}**! დავიმახსოვრე შენი სახელი."
-    
-    if "რა მქვია" in text:
-        return f"შენ გქვია **{user_name}**." if user_name else "ჯერ არ გითქვამს შენი სახელი."
+# მომხმარებლის სახელის შემოწმება ბაზაში
+user_name = get_info('name')
 
-    # დრო და ვალუტა
-    if "დრო" in text:
-        return f"🕒 თბილისში ახლა: **{datetime.now(pytz.timezone('Asia/Tbilisi')).strftime('%H:%M')}**"
-    
-    if "დოლარი" in text or "$" in text:
-        nums = [float(s) for s in text.split() if s.replace('.','',1).isdigit()]
-        if nums: return f"💵 {nums[0]}$ არის დაახლოებით **{round(nums[0]*2.70, 2)} ₾**."
-
-    return None
-
-# --- ინტერფეისი ---
-with st.sidebar:
-    st.title("🧒 Gemo AI Pro")
-    name_display = get_info('name') or "მეგობარო"
-    st.write(f"მოგესალმები, **{name_display}**!")
-    if st.button("🗑️ მეხსიერების წაშლა"):
-        st.session_state.messages = []
-        st.rerun()
-
-# ხმის ფუნქცია
-st.markdown("<script>function speakText(t){window.speechSynthesis.cancel();const m=new SpeechSynthesisUtterance(t);m.lang='ka-GE';window.speechSynthesis.speak(m);}</script>", unsafe_allow_html=True)
-
+# --- ჩატის ისტორიის ინიციალიზაცია ---
 if "messages" not in st.session_state:
-    st.session_state.messages = [{"role": "system", "content": f"შენ ხარ Gemo AI. მომხმარებელს ჰქვია {name_display}."}]
+    st.session_state.messages = []
+    # სისტემური ინსტრუქცია, რომ ბოტმა აღარ "ურიოს"
+    st.session_state.messages.append({
+        "role": "system", 
+        "content": "შენ ხარ Gemo AI, შექმნილი მიხეილ ჩიჩიაშვილის მიერ. უპასუხე მხოლოდ გამართული ქართულით. იყავი მეგობრული და ლოგიკური."
+    })
 
-for m in st.session_state.messages:
-    if m["role"] != "system":
-        with st.chat_message(m["role"]): st.markdown(m["content"])
+# ინტერფეისი
+st.title("🤖 Gemo AI Pro")
+if user_name:
+    st.write(f"მოგესალმები, **{user_name}**!")
 
-if prompt := st.chat_input("ჰკითხე Gemo-ს..."):
+# ჩატის ისტორიის ჩვენება
+for message in st.session_state.messages:
+    if message["role"] != "system":
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
+
+# მთავარი ლოგიკა
+if prompt := st.chat_input("ჰკითხე რამე Gemo-ს..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"): st.markdown(prompt)
+    with st.chat_message("user"):
+        st.markdown(prompt)
+
+    # სახელის დამახსოვრების ლოგიკა
+    if "მე მქვია" in prompt.lower():
+        name = prompt.lower().split("მე მქვია")[-1].strip().capitalize()
+        save_info('name', name)
+        response_text = f"სასიამოვნოა შენი გაცნობა, {name}! დავიმახსოვრე შენი სახელი."
+    else:
+        # Groq-თან კავშირი დაბალი ტემპერატურით
+        try:
+            completion = client.chat.completions.create(
+                model="llama-3.1-8b-instant",
+                messages=st.session_state.messages,
+                temperature=0.4, # დაბალი ტემპერატურა ლოგიკური პასუხებისთვის
+                max_tokens=300
+            )
+            response_text = completion.choices[0].message.content
+        except Exception as e:
+            response_text = "უკაცრავად, კავშირის პრობლემაა. სცადე მოგვიანებით."
 
     with st.chat_message("assistant"):
-        local_res = get_local_answer(prompt)
-        if local_res:
-            full_res = local_res
-            st.write(full_res)
-        else:
-            comp = client.chat.completions.create(model="llama-3.1-8b-instant", messages=st.session_state.messages)
-            full_res = comp.choices[0].message.content
-            st.write(full_res)
-        
-        # ხმის გაშვება
-        clean_v = full_res.replace("#", "").replace("*", "").replace("\n", " ")
-        st.components.v1.html(f"<script>speakText('{clean_v}');</script>", height=0)
-        st.session_state.messages.append({"role": "assistant", "content": full_res})
+        st.markdown(response_text)
+    
+    st.session_state.messages.append({"role": "assistant", "content": response_text})
