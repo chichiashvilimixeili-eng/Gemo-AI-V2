@@ -1,25 +1,29 @@
 import streamlit as st
 from groq import Groq
 import sqlite3
+from datetime import datetime
+import pytz
 
-# მონაცემთა ბაზის ფუნქციები
+# 1. მონაცემთა ბაზის გამართვა (სახელისთვის)
 def init_db():
-    conn = sqlite3.connect('gemo_data.db')
+    conn = sqlite3.connect('gemo_data.db', check_same_thread=False)
     c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS user_info (key TEXT PRIMARY KEY, value TEXT)''')
     conn.commit()
     conn.close()
 
 def get_info(key):
-    conn = sqlite3.connect('gemo_data.db')
-    c = conn.cursor()
-    c.execute("SELECT value FROM user_info WHERE key=?", (key,))
-    res = c.fetchone()
-    conn.close()
-    return res[0] if res else None
+    try:
+        conn = sqlite3.connect('gemo_data.db', check_same_thread=False)
+        c = conn.cursor()
+        c.execute("SELECT value FROM user_info WHERE key=?", (key,))
+        res = c.fetchone()
+        conn.close()
+        return res[0] if res else None
+    except: return None
 
 def save_info(key, value):
-    conn = sqlite3.connect('gemo_data.db')
+    conn = sqlite3.connect('gemo_data.db', check_same_thread=False)
     c = conn.cursor()
     c.execute("INSERT OR REPLACE INTO user_info VALUES (?, ?)", (key, value))
     conn.commit()
@@ -27,21 +31,23 @@ def save_info(key, value):
 
 init_db()
 
-# Groq კონფიგურაცია - აქ ჩასვი შენი API Key
-client = Groq(api_key="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")
-
+# 2. კონფიგურაცია
+client = Groq(api_key="შენი_API_გასაღები")
 st.set_page_config(page_title="Gemo AI Pro", page_icon="🤖")
-st.title("🤖 Gemo AI Pro")
 
-# სახელი ბაზიდან
-user_name = get_info('name')
-if user_name:
-    st.sidebar.write(f"მომხმარებელი: **{user_name}**")
+# დროის გაგება (თბილისის დროით)
+tbilisi_tz = pytz.timezone('Asia/Tbilisi')
+current_time = datetime.now(tbilisi_tz).strftime("%H:%M:%S")
+current_date = datetime.now(tbilisi_tz).strftime("%Y-%m-%d")
 
+# 3. მეხსიერების შენარჩუნება (Session State)
 if "messages" not in st.session_state:
+    user_name = get_info('name') or "მეგობარო"
     st.session_state.messages = [
-        {"role": "system", "content": "შენ ხარ Gemo AI, ჭკვიანი ასისტენტი. ისაუბრე მხოლოდ გამართული ქართულით. იყავი ზუსტი და ლოგიკური."}
+        {"role": "system", "content": f"შენ ხარ Gemo AI, მიხეილ ჩიჩიაშვილის მიერ შექმნილი. დღეს არის {current_date}, ახლა არის {current_time}. მომხმარებლის სახელია {user_name}. ისაუბრე მხოლოდ გამართული ქართულით, იყავი ზუსტი და მეგობრული. გრამატიკა დაიცავი მაქსიმალურად."}
     ]
+
+st.title("🤖 Gemo AI Pro")
 
 # ისტორიის ჩვენება
 for message in st.session_state.messages:
@@ -49,29 +55,28 @@ for message in st.session_state.messages:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
-# ჩატის ლოგიკა
+# 4. ჩატის ლოგიკა
 if prompt := st.chat_input("ჰკითხე რამე Gemo-ს..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    # სახელის დამახსოვრება
-    if "მე მქვია" in prompt.lower() or "ჩემი სახელია" in prompt.lower():
-        name = prompt.lower().replace("მე მქვია", "").replace("ჩემი სახელია", "").strip().capitalize()
+    # სახელის ამოცნობა და შენახვა ბაზაში
+    if "მქვია" in prompt:
+        name = prompt.split("მქვია")[-1].strip().strip('.')
         save_info('name', name)
-        response_text = f"სასიამოვნოა, {name}! დავიმახსოვრე შენი სახელი."
-    else:
-        try:
-            # ვიყენებთ უფრო ძლიერ მოდელს და დაბალ ტემპერატურას
-            completion = client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
-                messages=st.session_state.messages,
-                temperature=0.1, # მაქსიმალური სიზუსტე
-                max_tokens=500
-            )
-            response_text = completion.choices[0].message.content
-        except Exception as e:
-            response_text = "ხარვეზია კავშირისას. სცადე ცოტა ხანში."
+
+    try:
+        # ვიყენებთ ყველაზე ძლიერ მოდელს გრამატიკისთვის
+        completion = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=st.session_state.messages,
+            temperature=0.2, # დაბალი ტემპერატურა = ნაკლები გრამატიკული შეცდომა
+            max_tokens=600
+        )
+        response_text = completion.choices[0].message.content
+    except Exception as e:
+        response_text = "ხარვეზია კავშირისას."
 
     with st.chat_message("assistant"):
         st.markdown(response_text)
