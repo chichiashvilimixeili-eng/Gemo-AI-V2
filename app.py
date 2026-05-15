@@ -96,14 +96,11 @@ if prompt := st.chat_input("ჰკითხე რამე Gemo-ს..."):
             st.markdown(response_text)
         else:
             try:
-                completion = client.chat.completions.create(
-    model="llama-3.1-8b-instant",
-    messages=[
-        {"role": "system", "content": "შენ ხარ Gemo AI, მეგობრული და ჭკვიანი ასისტენტი. უპასუხე მხოლოდ ქართულად, მოკლედ და გასაგებად. არ გამოიგონო უაზრო სიტყვები."},
-        {"role": "user", "content": prompt}
-    ],
-    temperature=0.1,
-    max_tokens=200
+               completion = client.chat.completions.create(
+    model="llama-3.3-70b-versatile", # ეს მოდელი ბევრად ჭკვიანია
+    messages=st.session_state.messages,
+    temperature=0.1, # კიდევ უფრო დავუწიოთ სიზუსტისთვის
+    max_tokens=500
 )
                 response_text = completion.choices[0].message.content
                 st.markdown(response_text)
