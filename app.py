@@ -37,7 +37,7 @@ now = datetime.now(tbilisi_tz)
 current_time = now.strftime("%H:%M")
 current_date = now.strftime("%d/%m/%Y")
 
-client = Groq(api_key="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")
+client = Groq(api_key=client.secrets["GROQ_API_KEY"])
 st.set_page_config(page_title="Gemo AI Pro", page_icon="🤖")
 
 # 3. მეხსიერება და სისტემური ინსტრუქცია
