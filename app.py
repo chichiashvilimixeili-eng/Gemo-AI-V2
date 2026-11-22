@@ -73,7 +73,7 @@ if prompt := st.chat_input("ჰკითხე რამე Gemo-ს..."):
         )
         response_text = completion.choices[0].message.content
     except Exception as e:
-        response_text = "ხარვეზია კავშირისას. გთხოვ, შეამოწმე API გასაღები."
+        response_text = f"ხარვეზი: {e}"
 
     with st.chat_message("assistant"):
         st.markdown(response_text)
