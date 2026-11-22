@@ -66,10 +66,10 @@ if prompt := st.chat_input("ჰკითხე რამე Gemo-ს..."):
 
     try:
         completion = client.chat.completions.create(
-            model="llama-3.3-70b-versatile", # საუკეთესო მოდელი ქართულისთვის
-            messages=st.session_state.messages,
-            temperature=0.2, # დაბალი ტემპერატურა სიზუსტისთვის
-            max_tokens=800
+    model="openai/gpt-oss-120b",
+    messages=st.session_state.messages,
+    temperature=0.2,
+    max_tokens=800
         )
         response_text = completion.choices[0].message.content
     except Exception as e:
